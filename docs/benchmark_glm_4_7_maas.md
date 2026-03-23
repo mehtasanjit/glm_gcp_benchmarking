@@ -431,71 +431,9 @@ All runs used `--max-tokens 2048`, streaming mode, and the HotpotQA distractor v
 
 ---
 
-## 9. Cross-Provider Latency Comparison
+## 9. External Latency Benchmarks & Model Specifications
 
-### 9.1 Provider Overview
-
-All three providers offer GLM-4.7 as **serverless inference APIs** (no infrastructure to manage):
-
-| | Google Vertex MaaS | Baseten | Cerebras Inference |
-|---|---|---|---|
-| **Type** | Serverless API | Serverless API | Serverless API |
-| **TTFT** | ~500ms | ~500-600ms | ~510ms |
-| **Throughput** | ~230 tok/s | ~200-250 tok/s | ~1200 tok/s |
-| **Relative Price** | Baseline | ~Similar | ~2.4x more expensive |
-| **Hardware** | Google-managed | GPU-based | Wafer Scale Engine (WSE-3) |
-
-Sources: [Artificial Analysis](https://artificialanalysis.ai/models/glm-4-7/providers), [OpenRouter](https://openrouter.ai/z-ai/glm-4.7/performance)
-
-**Key finding:** Google MaaS and Baseten deliver nearly identical TTFT and throughput. Cerebras offers ~6x higher throughput at 2.4x the cost, with the same TTFT.
-
-### 9.2 Latency Speedup Analysis: Google MaaS vs Cerebras
-
-*Assumptions: TTFT = 500ms for both providers. Google MaaS = 230 tok/s, Cerebras = 1200 tok/s. All tokens (thinking + output) counted as completion tokens.*
-
-#### 256 Thinking Tokens (simpler tasks: classification, extraction, summarization)
-
-| Thinking | Output | Total Tokens | Google MaaS | Cerebras | Time Saved | Speedup |
-|---|---|---|---|---|---|---|
-| 256 | 128 | **384** | 0.5s + 1.7s = **2.2s** | 0.5s + 0.3s = **0.8s** | **1.4s** | 2.8x |
-| 256 | 256 | **512** | 0.5s + 2.2s = **2.7s** | 0.5s + 0.4s = **0.9s** | **1.8s** | 3.0x |
-| 256 | 512 | **768** | 0.5s + 3.3s = **3.8s** | 0.5s + 0.6s = **1.1s** | **2.7s** | 3.5x |
-
-#### 512 Thinking Tokens (medium tasks: multi-hop QA, code generation)
-
-| Thinking | Output | Total Tokens | Google MaaS | Cerebras | Time Saved | Speedup |
-|---|---|---|---|---|---|---|
-| 512 | 128 | **640** | 0.5s + 2.8s = **3.3s** | 0.5s + 0.5s = **1.0s** | **2.3s** | 3.3x |
-| 512 | 256 | **768** | 0.5s + 3.3s = **3.8s** | 0.5s + 0.6s = **1.1s** | **2.7s** | 3.5x |
-| 512 | 512 | **1024** | 0.5s + 4.5s = **5.0s** | 0.5s + 0.9s = **1.4s** | **3.6s** | 3.6x |
-
-### 9.3 Interpretation
-
-- **TTFT is identical** (~500ms) across both providers — prefill latency is not a differentiator
-- **The speedup advantage scales with output length**: 1.4s saved at 384 tokens → 3.6s saved at 1024 tokens
-- **For low-output tasks** (128-256 total tokens): the difference is 0.3-1.4s — Google MaaS is effectively competitive
-- **For high-output tasks** (1024+ total tokens): Cerebras saves 3.6+ seconds per request, which compounds at scale
-- **At 10K requests/day** with 1024 total tokens: Cerebras saves ~10 hours of aggregate latency daily — at 2.4x cost
-
-### 9.4 Typical Thinking Token Volume by Task
-
-| Task Type | Typical Thinking Tokens | Typical Output Tokens | Total |
-|---|---|---|---|
-| Simple factual QA | 50-100 | 10-30 | 60-130 |
-| Text classification / sentiment | 30-80 | 5-20 | 35-100 |
-| Entity extraction | 50-150 | 20-100 | 70-250 |
-| Summarization | 100-200 | 50-200 | 150-400 |
-| Multi-hop reasoning (HotpotQA) | 400-600 | 10-50 | 410-650 |
-| Code generation | 100-300 | 100-500 | 200-800 |
-| Complex math / logic proofs | 1000-2000+ | 100-500 | 1100-2500+ |
-
-For the most common tasks (classification, extraction, simple QA), total output is under 250 tokens — the latency difference between Google MaaS and Cerebras is under 1 second.
-
----
-
-## 10. External Latency Benchmarks
-
-For detailed, real-time cross-provider comparisons:
+For cross-provider latency comparisons of GLM-4.7, refer to these independent benchmarking platforms:
 
 - **[OpenRouter — GLM-4.7 Performance](https://openrouter.ai/z-ai/glm-4.7/performance)** — TTFT, output speed (tok/s), and total latency across 8+ providers
 - **[Artificial Analysis — GLM-4.7 Providers](https://artificialanalysis.ai/models/glm-4-7/providers)** — Independent TTFT and output speed benchmarks with median/P25/P75 distributions
@@ -508,13 +446,24 @@ For detailed, real-time cross-provider comparisons:
 | **Architecture** | MoE, 358B total parameters |
 | **Reasoning** | Enabled by default (`reasoning_content` field) |
 | **Max Completion Tokens** | 128,000 (Vertex AI MaaS) |
-| **Providers** | 8+ via OpenRouter (DeepInfra, Nebius, Together, Parasail, SiliconFlow, AtlasCloud, Venice, Z.AI, Google Vertex) |
-| **Quantization** | FP8 (most providers), FP4 (DeepInfra, Venice) |
+| **Quantization** | FP8 (most providers) |
 | **Rate Limit (Vertex)** | 250 RPM |
+
+### Typical Thinking Token Volume by Task
+
+| Task Type | Typical Thinking Tokens | Typical Output Tokens | Total |
+|---|---|---|---|
+| Simple factual QA | 50-100 | 10-30 | 60-130 |
+| Text classification / sentiment | 30-80 | 5-20 | 35-100 |
+| Entity extraction | 50-150 | 20-100 | 70-250 |
+| Summarization | 100-200 | 50-200 | 150-400 |
+| Multi-hop reasoning (HotpotQA) | 400-600 | 10-50 | 410-650 |
+| Code generation | 100-300 | 100-500 | 200-800 |
+| Complex math / logic proofs | 1000-2000+ | 100-500 | 1100-2500+ |
 
 ---
 
-## 11. References
+## 10. References
 
 - [Vertex AI MaaS — Thinking for Open Models](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/maas/capabilities/thinking) — Official docs on enabling/disabling reasoning
 - [Artificial Analysis — GLM-4.7](https://artificialanalysis.ai/models/glm-4-7/providers) — Independent provider benchmarks
