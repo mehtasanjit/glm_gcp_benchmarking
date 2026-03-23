@@ -242,7 +242,16 @@ python benchmark_glm_4_7_maas_hotpot_qa_distractor.py \
 | `--temperature` | 0.1 | Sampling temperature |
 | `--num-workers` | 1 | Number of concurrent workers (1 = sequential) |
 | `--request-delay` | 0.0 | Delay in seconds between requests |
+| `--explanation-word-limit` | 0 | Ask model for detailed explanation up to N words |
 | `--project` | default-project-alpha-1 | GCP project ID |
+
+#### Why `--explanation-word-limit`?
+
+HotpotQA ground truth answers are very short (typically 1-5 words like "Terry Richardson" or "Yes"). When thinking is OFF, the model produces only 3-15 output tokens per request — too few to meaningfully measure **throughput (tokens/sec)**. The generation phase is so brief that timing noise dominates.
+
+`--explanation-word-limit N` modifies the prompt to ask: *"First give the short answer, then explain how you arrived at it in approximately N words."* This forces the model to generate ~200-500 output tokens per request, giving a reliable throughput measurement.
+
+**Trade-off:** EM and F1 accuracy scores become meaningless in explanation mode because the full explanation text (e.g., "Yes. Scott Derrickson is American because...") is compared against the short ground truth ("Yes"). Use explanation mode **only for throughput/latency measurement**, not accuracy evaluation.
 
 #### Output Format
 
